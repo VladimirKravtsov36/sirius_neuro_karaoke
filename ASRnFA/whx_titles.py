@@ -6,15 +6,14 @@ from datetime import timedelta
 
 # ------------------ CONFIG ------------------
 
-PAUSE_MERGE_SEC = 0.4     # объединять сегменты, если пауза меньше
 MIN_K_CS = 3              # минимальная длительность \k
 MAX_LINE_LEN = 60         # перенос строки при длинном тексте
-
 SKIP_TOKENS = {",", ".", "?", "!", "…", "♪"}
 
 # ------------------ HELPERS ------------------
 
 def ass_time(sec: float) -> str:
+    """Формат ASS времени: h:mm:ss.cs"""
     td = timedelta(seconds=sec)
     s = int(td.total_seconds())
     cs = int((sec - s) * 100)
@@ -27,6 +26,9 @@ def clean_word(word: str) -> str:
     return word.replace("{", "").replace("}", "").strip()
 
 def build_karaoke_text(words, seg_end):
+    """
+    Формирует текст Dialogue с подсветкой слов через \k
+    """
     parts = []
     last_end = None
     visible_len = 0
@@ -43,11 +45,7 @@ def build_karaoke_text(words, seg_end):
         if parts:
             text = " " + text
 
-        dur_cs = max(
-            MIN_K_CS,
-            int((w["end"] - w["start"]) * 100)
-        )
-
+        dur_cs = max(MIN_K_CS, int((w["end"] - w["start"]) * 100))
         parts.append(f"{{\\k{dur_cs}}}{text}")
         visible_len += len(text)
         last_end = w["end"]
@@ -60,29 +58,11 @@ def build_karaoke_text(words, seg_end):
 
     text = "".join(parts)
 
-    # перенос строки, если слишком длинно
+    # перенос строки для длинных фраз
     if visible_len > MAX_LINE_LEN and " " in text:
         text = text.replace(" ", "\\N", 1)
 
     return text
-
-def merge_segments(segments):
-    merged = []
-    for seg in segments:
-        if not merged:
-            merged.append(seg)
-            continue
-
-        prev = merged[-1]
-        gap = seg["start"] - prev["end"]
-
-        if gap < PAUSE_MERGE_SEC:
-            prev["end"] = seg["end"]
-            prev["words"].extend(seg.get("words", []))
-        else:
-            merged.append(seg)
-
-    return merged
 
 # ------------------ MAIN ------------------
 
@@ -91,11 +71,11 @@ def main(audio_path):
     compute_type = "float16" if device == "cuda" else "int8"
 
     audio_path = Path(audio_path)
-    assert audio_path.exists(), "Файл не найден"
+    assert audio_path.exists(), f"Файл не найден: {audio_path}"
 
-    print(f"▶ device: {device}")
+    print(f"▶ Используется устройство: {device}")
 
-    # 1️⃣ Whisper
+    # 1️⃣ Загружаем WhisperX large-v3
     model = whisperx.load_model(
         "large-v3",
         device=device,
@@ -119,7 +99,7 @@ def main(audio_path):
         device=device
     )
 
-    segments = merge_segments(aligned["segments"])
+    segments = aligned["segments"]
 
     # 3️⃣ ASS HEADER
     ass = [
@@ -138,7 +118,7 @@ def main(audio_path):
         "Format: Layer, Start, End, Style, Text",
     ]
 
-    # 4️⃣ EVENTS
+    # 4️⃣ Генерация Dialogue для каждой фразы
     for seg in segments:
         words = seg.get("words", [])
         if not words:
@@ -155,16 +135,16 @@ def main(audio_path):
             f"Karaoke,{text}"
         )
 
-    out = audio_path.with_suffix(".karaoke.ass")
-    out.write_text("\n".join(ass), encoding="utf-8")
+    out_path = audio_path.with_suffix(".karaoke.ass")
+    out_path.write_text("\n".join(ass), encoding="utf-8")
 
-    print(f"✅ Готово: {out}")
+    print(f"✅ Готово: {out_path}")
 
 # ------------------ RUN ------------------
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("python whx_titles.py song.mp3")
+        print("Использование: python whx_titles.py song.mp3")
         sys.exit(1)
 
     main(sys.argv[1])
