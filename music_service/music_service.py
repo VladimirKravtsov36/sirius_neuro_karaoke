@@ -10,6 +10,7 @@ class DownloadedTrack:
     title: str
     artist: str
     file_path: str  # Полный путь к скачанному треку
+    lyrics_type: str # NONE - нет текста, LRC - с временными метками, TEXT - без временных меток
     lyrics: Optional[str] # Текст, если нашелся
     cover_url: str
     bitrate: int
@@ -77,7 +78,7 @@ class SearchDownloadTrack:
         # Используем ID в имени файла, чтобы избежать проблем с дублями или спецсимволами
         filename = f"{track.id}_{track.artists[0].name} - {track.title}.{best_quality.codec}"
 
-        # Очистка имени файла от запрещенных символов системы
+        # Очистка имени файла от запрещенных символов
         valid_chars = "-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
         safe_filename = "".join(c for c in filename if c in valid_chars)
         
@@ -86,18 +87,20 @@ class SearchDownloadTrack:
         # Скачивание (если файла еще нет)
         if not os.path.exists(full_path):
             print(f"Скачиваю трек ID {track_id}...")
-            track.download(full_path, bitrate_in_kbps=best_quality.bitrate_in_kbps)
+            best_quality.download(full_path)
         else:
             print(f"Файл уже существует: {full_path}")
 
         # Получение текста
         lyrics_text = None
-        try:
-            lyrics_info = track.get_lyrics("TEXT")
-            if lyrics_info:
-                lyrics_text = lyrics_info.fetch_lyrics()
-        except Exception:
-            pass # Если текста нет, не страшно
+        lyricstype = "NONE"
+        if track.lyrics_info.has_available_sync_lyrics:
+            lyrics_text = track.get_lyrics("LRC").fetch_lyrics()
+            lyricstype = "LRC"
+
+        elif track.lyrics_info.has_available_text_lyrics:
+            lyrics_text = track.get_lyrics("TEXT").fetch_lyrics()
+            lyricstype = "TEXT"
 
         # Возвращаем готовый объект для другого класса
         return DownloadedTrack(
@@ -105,6 +108,7 @@ class SearchDownloadTrack:
             title=track.title,
             artist=", ".join([a.name for a in track.artists]),
             file_path=os.path.abspath(full_path),
+            lyrics_type=lyricstype,
             lyrics=lyrics_text,
             cover_url=track.cover_uri.replace("%%", "200x200") if track.cover_uri else None,
             bitrate=best_quality.bitrate_in_kbps,
