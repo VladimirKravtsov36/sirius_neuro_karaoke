@@ -21,4 +21,4 @@ class ASRService:
     def transcribe(self, path: Path):
         audio = whisperx.load_audio(str(path))
         result =self._model.transcribe(audio, batch_size=self._batch_size)
-        return result["segments"]
+        return result
