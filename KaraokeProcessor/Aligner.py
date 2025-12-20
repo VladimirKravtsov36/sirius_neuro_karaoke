@@ -1,6 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 import whisperx
+import torch
 from typing import List, Dict
 
 

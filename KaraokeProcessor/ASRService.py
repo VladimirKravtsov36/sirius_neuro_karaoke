@@ -18,7 +18,6 @@ class ASRService:
         self._batch_size = 16
         self._model = whisperx.load_model(model, device, compute_type=self._compute_type)
         
-    def transcribe(self, path: Path):
-        audio = whisperx.load_audio(str(path))
+    def transcribe(self, audio):
         result =self._model.transcribe(audio, batch_size=self._batch_size)
         return result
