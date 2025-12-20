@@ -22,7 +22,7 @@ class Aligner:
     ) -> List[Dict]:
         model_a, metadata = whisperx.load_align_model(
             language_code=language,
-            device=self.device,
+            device=self._device,
         )
         aligned = whisperx.align(
             segments,

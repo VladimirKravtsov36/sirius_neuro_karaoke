@@ -17,12 +17,17 @@ class LyricsProvider:
         minutes, seconds = map(float, time_str.split(":"))
         return minutes * 60 + seconds
 
-    def __init__(self, LRC_path: Path):
+    def __init__(self, LRC_path: str):
+        self._path = Path(LRC_path)
+        if not self._path.exists():
+            logger.error(f'Audio file not found: {str(self._path)}')
+            raise FileNotFoundError(f"Audio file not found: {str(self._path)}")
+        
         self.segments = []
         current_text = []
         start_time = None
-        with open(LRC_path, 'r') as file:
-            logger.info(f'Loading lyrics from {str(LRC_path)}...')
+        with open(self._path, 'r') as file:
+            logger.info(f'Loading lyrics from {str(self._path)}...')
             lines = [line.strip() for line in file.readlines()]
             for line in lines:
                 if not line.startswith('['):

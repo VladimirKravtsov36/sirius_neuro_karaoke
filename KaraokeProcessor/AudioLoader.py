@@ -14,7 +14,7 @@ class AudioLoader:
     def __init__(self, path: str, target_sr: int = 16000):
         self.target_sr = target_sr
         self._path = Path(path)
-        if not path.exists():
+        if not self._path.exists():
             logger.error(f'Audio file not found: {path}')
             raise FileNotFoundError(f"Audio file not found: {path}")
 
