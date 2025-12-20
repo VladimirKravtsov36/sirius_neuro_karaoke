@@ -26,7 +26,7 @@ class SourceSeparator:
             )
         self.model = model
 
-    def move_dir(self, input_dir: str, output_dir: str) -> None:
+    def _move_dir(self, input_dir: str, output_dir: str) -> None:
         input_dir = Path(input_dir)
         output_dir = Path(output_dir)
 
@@ -48,15 +48,31 @@ class SourceSeparator:
 
         if input_path.suffix == "mp3":
             demucs.separate.main(
-                ["--mp3", "-n", self.model, "-o", output_dir, str(input_path)]
+                [
+                    "--mp3",
+                    "--two-stems=vocals",
+                    "-n",
+                    self.model,
+                    "-o",
+                    output_dir,
+                    str(input_path),
+                ]
             )
         else:
             with tempfile.TemporaryDirectory() as tmpdir:
                 song_mp3 = AudioConverter.any_to_mp3(str(input_path), tmpdir)
                 demucs.separate.main(
-                    ["--mp3", "-n", self.model, "-o", tmpdir, song_mp3]
+                    [
+                        "--mp3",
+                        "--two-stems=vocals",
+                        "-n",
+                        self.model,
+                        "-o",
+                        tmpdir,
+                        song_mp3,
+                    ]
                 )
-                self.move_dir(Path(tmpdir) / self.model, Path(output_dir) / self.model)
+                self._move_dir(Path(tmpdir) / self.model, Path(output_dir) / self.model)
 
         output_dir = Path(output_dir).resolve() / self.model / input_path.stem
 
