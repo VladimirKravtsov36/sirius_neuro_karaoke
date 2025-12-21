@@ -20,4 +20,4 @@ class ASRService:
         
     def transcribe(self, audio):
         result =self._model.transcribe(audio, batch_size=self._batch_size)
-        return result
+        return result 
