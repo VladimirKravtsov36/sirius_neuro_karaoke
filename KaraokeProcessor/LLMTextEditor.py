@@ -1,30 +1,70 @@
 import openai
 import json
-from .LLMPrompt import *
+from .LLMPrompt import edit_prompt, correct_prompt
 from dotenv import load_dotenv
 import os
 import logging
+
+# Настройка логирования
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+# Загрузка переменных окружения
 load_dotenv()
+YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
+YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
+YANDEX_CLOUD_MODEL = os.getenv("YANDEX_CLOUD_MODEL")
+YANDEX_CLOUD_BASE_URL = os.getenv("YANDEX_CLOUD_BASE_URL")
 
 class LLMTextEditor:
-    def __init__(self, model: str):
-        self.api_key = os.getenv("OPENROUTER_API_KEY")
-        base_url = os.getenv("OPENROUTER_BASE_URL")
-        if not self.api_key:
-            raise ValueError("API key не найден. Установите OPENROUTER_API_KEY в окружении.")
-        self.client = openai.OpenAI(api_key=self.api_key, base_url=base_url)
-        self.model = model
-        
-    def edit_wo_reference(self, data: str):
-        req_str = json.dumps(data, ensure_ascii=False, indent=2)
-        response = self.client.chat.completions.create(
+    def __init__(self):
+        try:
+            if not all([YANDEX_CLOUD_API_KEY, YANDEX_CLOUD_FOLDER, YANDEX_CLOUD_MODEL, YANDEX_CLOUD_BASE_URL]):
+                raise ValueError("Не все переменные окружения заданы!")
+
+            self.client = openai.OpenAI(
+                api_key=YANDEX_CLOUD_API_KEY,
+                base_url=YANDEX_CLOUD_BASE_URL,
+                project=YANDEX_CLOUD_FOLDER
+            )
+            logger.info("Клиент LLM успешно инициализирован.")
+        except Exception as e:
+            logger.error(f"Ошибка инициализации клиента: {e}")
+            raise
+
+    def edit(self, data: str, reference: str | None = None):
+        if reference is None:
             messages = [
                 {"role": "system", "content": edit_prompt},
-                {"role": "user", "content": req_str}
-            ],
-            model = self.model
-        )
-        print(response)
-        return response
-        
+                {"role": "user", "content": data}
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": correct_prompt},
+                {"role": "user", "content": data + '\n\n' + reference}
+            ]
+        try:
+            response = self.client.chat.completions.create(
+                model=YANDEX_CLOUD_MODEL,
+                messages=messages,
+                stream=False,
+                temperature=0.1,
+                max_tokens=2000
+            )
+        except Exception as e:
+            logger.error(f"Ошибка запроса к модели: {e}")
+            return None
+
+        try:
+            response_text = response.choices[0].message.content
+        except (AttributeError, IndexError) as e:
+            logger.error(f"Некорректная структура ответа: {e}")
+            return None
+
+        # Проверка на валидный JSON
+        try:
+            parsed_data = json.loads(response_text)
+            return parsed_data
+        except json.JSONDecodeError:
+            logger.warning(f"Модель вернула невалидный JSON, возвращаем сырой текст.")
+            return response_text
