@@ -6,8 +6,9 @@ __pycache__
 
 demo
 
-data*.mp3
-__pycache__/
+data
+example.py
+*.mp3
 *.tmp
 *.pyc
 .DS_Store

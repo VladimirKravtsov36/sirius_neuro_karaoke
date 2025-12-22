@@ -1,9 +1,9 @@
 from typing import Dict
 import whisperx
-from .Aligner import *
-from .LyricsProvider import *
-from .ASRService import *
-from .AudioLoader import *
+from Aligner import *
+from LyricsProvider import *
+from ASRService import *
+from AudioLoader import *
 
 
 class KaraokeProcessor:

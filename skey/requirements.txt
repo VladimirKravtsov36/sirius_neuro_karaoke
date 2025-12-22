@@ -1,6 +1,6 @@
-numpy==2.2.0
-torch==2.7.0
-torchaudio==2.7.0
+numpy==2.0.2
+torch==2.5.1
+torchaudio==2.5.1
 tqdm
 einops==0.8.*
 nnAudio==0.3.3

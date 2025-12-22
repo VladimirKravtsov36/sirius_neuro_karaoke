@@ -17,6 +17,33 @@ logging.basicConfig(level=logging.INFO)
 
 DEFAULT_CHECKPOINT_PATH = Path(__file__).parent / "models/skey.pt"
 
+KEY_MAP = {
+        0: "A Major",
+        1: "Bb Major",
+        2: "B Major",
+        3: "C Major",
+        4: "C# Major",
+        5: "D Major",
+        6: "D# Major",
+        7: "E Major",
+        8: "F Major",
+        9: "F# Major",
+        10: "G Major",
+        11: "G# Major",
+        12: "B minor",
+        13: "C minor",
+        14: "C# minor",
+        15: "D minor",
+        16: "D# minor",
+        17: "E minor",
+        18: "F minor",
+        19: "F# minor",
+        20: "G minor",
+        21: "G# minor",
+        22: "A minor",
+        23: "Bb minor",
+    }
+
 def yield_audio_paths(paths: List[str]) -> Iterator[Dict[str, Any]]:
     """
     Yields audio file paths in a randomized order.
@@ -218,7 +245,7 @@ def detect_key(
 
     results = infer_key(hcqt, chromanet, crop_fn, audio_tensor.to(d), d)
 
-    print(f"\n✅\n")
+    print(f"\nТональность определена\n")
 
     if not cli:
-        return results
+        return KEY_MAP[results]
