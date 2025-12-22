@@ -1,3 +1,4 @@
+import pyrubberband as pyrb
 import librosa
 import numpy as np
 import soundfile as sf
@@ -32,7 +33,7 @@ class Song:
         23: " Bb minor",
     }
 
-    def __init__(self, name, original_path = None, meta = None):
+    def __init__(self, name, audiofile, sr, meta=None):
         # Metadata
         self.name = name
         self.meta = meta # Represents words&&tackts
@@ -43,23 +44,21 @@ class Song:
             'vocal' : None,
             'other' : None
         }
-        if (original_path is not None):
-            self.load_audio(original_path)
-
-    def load_audio(self, original_path):
-        sf, sr = librosa.load(original_path)
         self.sr = sr
-        self.audio['original'] = sf
-        self.num_key = detect_key(audio=sf, extension="mp3", device="cuda", )
+        self.audio['original'] = audiofile
+        self.get_key()
+
+    def get_key(self):
+        self.num_key = detect_key(audio=self.audio['original'], extension="mp3", device="cuda")
         self.key = self.KEY_MAP[self.num_key]
+        print(self.key)
 
     # def divide_on_stems(self):
         #TODO сделать разделение на аудиодорожки
 
     def pitch_shift(self, key_index):
         shifted_stems = {}
-        stem_keys = ['drums', 'bass', 'vocal', 'other']
-        print(self.sr)
+        stem_keys = ['original']
         for audio_type in stem_keys:
             source_audio = self.audio[audio_type]
             if source_audio is None:
@@ -83,15 +82,12 @@ class Song:
                 shifted_stems[audio_type] = trimmed_audio
                 result_mix += trimmed_audio
         print(len(result_mix))
-        new_song = Song(self.name + self.KEY_MAP[key_index])
-        new_song.meta = self.meta
-        new_song.audio['original'] = result_mix
-        new_song.sr = self.sr
+        new_song = Song(self.name + self.KEY_MAP[key_index], result_mix, self.sr, self.meta)
         for audio_type in stem_keys:
             new_song.audio[audio_type] = shifted_stems[audio_type]
         return new_song
 
-    def export_audio(self, filename="res/ryu.mp3", track_type="original"):
+    def export_audio(self, filename="ryu.mp3", track_type="original"):
         """Saves the current state of the audio to a file."""
         if self.audio[track_type] is not None:
             sf.write(filename, self.audio[track_type], self.sr)
