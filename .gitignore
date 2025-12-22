@@ -1,7 +1,7 @@
 .venv
 
 demo.py
-
+.env
 __pycache__
 
 demo
