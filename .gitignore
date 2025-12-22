@@ -13,7 +13,7 @@ __pycache__
 
 demo
 
-
+*.DS_Store
 # dependencies
 /Frontend/node_modules
 /DemoBackend/node_modules

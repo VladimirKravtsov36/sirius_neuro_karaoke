@@ -23,15 +23,12 @@ class KaraokeProcessor:
     def process(self) -> Dict:
         audio = self.audio_loader.load()
         asr_result = self.asr_service.transcribe(audio)
-<<<<<<< HEAD
        # print(json.dumps(asr_result["segments"]))
         if self.lyrics_provider is not None:
             asr_correct_result = self.text_editor.edit(json.dumps(asr_result["segments"]), self.lyrics_provider.process_text())
         else:
             asr_correct_result = self.text_editor.edit(json.dumps(asr_result["segments"]), None)
         aligned_segs = self.aligner.align(audio, asr_correct_result, asr_result["language"])
-=======
         aligned_segs = self.aligner.align(audio, asr_result["segments"], asr_result["language"])
->>>>>>> parent of 1f6cf2d (LLEditor in progress)
         return aligned_segs
         
