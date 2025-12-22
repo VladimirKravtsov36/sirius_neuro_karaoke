@@ -57,3 +57,4 @@ yarn-error.log*
 /.changelog
 .npm/
 dist
+.env
