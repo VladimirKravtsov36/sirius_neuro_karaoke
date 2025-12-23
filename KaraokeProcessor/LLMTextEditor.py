@@ -86,6 +86,4 @@ class LLMTextEditor:
             logger.error(f"Ошибка запроса к модели: {e}")
             return None
         plist = response.choices[0].message.content.split('[IMAGE]')
-        if len(plist) != num:
-            raise Exception("LLM вернула некорректные промпты!")
         return plist
