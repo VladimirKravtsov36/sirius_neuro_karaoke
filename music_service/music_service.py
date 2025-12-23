@@ -12,7 +12,7 @@ class DownloadedTrack:
     artist: str
     file_path: str  # Полный путь к скачанному треку
     file_name: Path
-    lyrics_type: str # NONE - нет текста, LRC - с временными метками, TEXT - без временных меток
+    lyrics_path: str # Полный путь к тексту, если он есть
     lyrics: Optional[str] # Текст, если нашелся
     cover_url: str
     bitrate: int
@@ -77,18 +77,19 @@ class SearchDownloadTrack:
 
         # Формируем путь файла
         # Используем ID в имени файла, чтобы избежать проблем с дублями или спецсимволами
-        filename = f"{track.id}_{track.artists[0].name}-{track.title}.{best_quality.codec}"
+        filename = f"{track.id}_{track.artists[0].name}-{track.title}"
 
         # Очистка имени файла от запрещенных символов
         valid_chars = "-_.()abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
         safe_filename = "".join(c for c in filename if c in valid_chars)
         
-        full_path = os.path.join(self.download_folder, safe_filename)
-
+        full_path = os.path.join(self.download_folder, f"{safe_filename}.{best_quality.codec}")
+        lyricspath = os.path.join(self.download_folder, f"{safe_filename}.txt")
         # Скачивание (если файла еще нет)
         if not os.path.exists(full_path):
             print(f"Скачиваю трек ID {track_id}...")
             best_quality.download(full_path)
+            print("Трек успешно скачан")
         else:
             print(f"Файл уже существует: {full_path}")
 
@@ -98,10 +99,14 @@ class SearchDownloadTrack:
         if track.lyrics_info.has_available_sync_lyrics:
             lyrics_text = track.get_lyrics("LRC").fetch_lyrics()
             lyricstype = "LRC"
+            with open(lyricspath, "w", encoding="utf-8") as f:
+                f.write(lyrics_text)
 
         elif track.lyrics_info.has_available_text_lyrics:
             lyrics_text = track.get_lyrics("TEXT").fetch_lyrics()
             lyricstype = "TEXT"
+            with open(lyricspath, "w", encoding="utf-8") as f:
+                f.write(lyrics_text)
 
         # Возвращаем готовый объект для другого класса
         return DownloadedTrack(
@@ -110,7 +115,7 @@ class SearchDownloadTrack:
             artist=", ".join([a.name for a in track.artists]),
             file_path=os.path.abspath(full_path),
             file_name=safe_filename,
-            lyrics_type=lyricstype,
+            lyrics_path=lyricspath,
             lyrics=lyrics_text,
             cover_url=track.cover_uri.replace("%%", "200x200") if track.cover_uri else None,
             bitrate=best_quality.bitrate_in_kbps,

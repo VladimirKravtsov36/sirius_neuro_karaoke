@@ -1,11 +1,10 @@
-import json
 from typing import Dict
 import whisperx
-from Aligner import *
-from KaraokeProcessor import LLMTextEditor
-from LyricsProvider import *
-from ASRService import *
-from AudioLoader import *
+from .Aligner import *
+from .LyricsProvider import *
+from .ASRService import *
+from .AudioLoader import *
+from .LLMTextEditor import *
 
 
 class KaraokeProcessor:

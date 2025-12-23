@@ -6,12 +6,14 @@ from fastapi import FastAPI, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from music_service.music_service import SearchDownloadTrack
-from skey import detect_key
+from skey.skey import detect_key
 from separation.source_separator import SourceSeparator
+from KaraokeProcessor.KaraokeProcessor import KaraokeProcessor, AudioLoader, LyricsProvider, LLMTextEditor, ASRService, Aligner
+
 
 load_dotenv()
-TOKEN = os.getenv("API_TOKEN")
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+TOKEN = os.getenv("YANDEX_MUSIC_API_TOKEN")
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
 app = FastAPI(title="Music Backend API")
 app.mount("/separated_songs", StaticFiles(directory="data/separated_songs"), name="separated_songs")
@@ -60,34 +62,78 @@ def process_track(request: TrackRequest):
 
         # Генерируем ссылки для скачивания (для фронтенда)
         # Предполагаем, что сервер запущен локально
-        base_url = f"separated_songs/htdemucs_ft/{Path(track_file_dto.file_name).stem}"
+        base_url = f"data/separated_songs/htdemucs_ft/{Path(track_file_dto.file_name).stem}"
         vocal_filename = os.path.basename("vocals.mp3")
         instr_filename = os.path.basename("no_vocals.mp3")
+        
+        lyrics_provider = None
+        if os.path.exists(track_file_dto.lyrics_path):
+            lyrics_provider = LyricsProvider(track_file_dto.lyrics_path)
 
+        kp = KaraokeProcessor(
+            AudioLoader(os.path.abspath(f"{base_url}/{vocal_filename}")),
+            lyrics_provider,
+            LLMTextEditor(),
+            ASRService("large-v3", "cuda"),
+            Aligner("cuda")
+        )
+        processed_lyrics = kp.process()
+
+        if not os.path.exists(f"{base_url}/images"):
+            os.makedirs(f"{base_url}/images")
+        
         return {
             "status": "success",
             "track_info": {
+                "id": track_file_dto.track_id,
                 "title": track_file_dto.title,
-                "artist": track_file_dto.artist
+                "artist": track_file_dto.artist,
+                "coverUrl": track_file_dto.cover_url
             },
             "analysis": {
                 "key": key,  # Результат работы первого класса
             },
             "downloads": {
-                # Ссылки на файлы, созданные вторым классом
+                # Ссылки на файлы для песни
                 "vocals_url": f"{base_url}/{vocal_filename}",
-                "instrumental_url": f"{base_url}/{instr_filename}"
-            }
+                "instrumental_url": f"{base_url}/{instr_filename}",
+                "images_url": f"{Path(track_file_dto.file_name).stem}"
+            },
+            "lyrics": processed_lyrics # Результат работы KaraokeProcessor
         }
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail="Трек не найден")
     except Exception as e:
         print(f"Ошибка: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
+        return {
+            "status": "error",
+        }
+    
+@app.get("/images")
+def get_images(track_folder: str):
+    """
+    Возвращает ссылки на картинки списком
+    """
+    try:
+        files = os.listdir(f"data/separated_songs/htdemucs_ft/{track_folder}/images")
+
+        urls = []
+        for filename in files:
+            full_url = f"/separated_songs/htdemucs_ft/{track_folder}/images/" + filename
+            urls.append(full_url)
+        
+        return {
+            "status": "success",
+            "images": urls
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     
 # Для запуска локально:
 if __name__ == "__main__":
     import uvicorn
     # Запуск сервера на порту 8000
-    uvicorn.run(app, host="127.0.0.1", port=8081)
+    uvicorn.run(app, host="127.0.0.1", port=3001)

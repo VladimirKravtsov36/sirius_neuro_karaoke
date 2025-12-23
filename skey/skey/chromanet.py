@@ -3,7 +3,7 @@ from typing import List
 from einops import rearrange
 from torch import nn
 
-from skey.convnext import ConvNeXtBlock, TimeDownsamplingBlock
+from .convnext import ConvNeXtBlock, TimeDownsamplingBlock
 
 
 class OctavePool(nn.Module):

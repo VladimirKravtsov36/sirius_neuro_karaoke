@@ -9,8 +9,8 @@ ctranslate2<4.5.0
 faster-whisper==1.1.1
 nltk==3.9.1
 onnxruntime==1.19
-pandas==2.2.2
-pyannote-audio>=3.3.2,<4.0.0
+pandas
+pyannote-audio<4.0.0
 transformers==4.48.0
 pydub
 lameenc
@@ -18,3 +18,7 @@ openunmix
 dora-search
 fastapi
 yandex-music
+openai
+librosa
+dotenv
+whisperx

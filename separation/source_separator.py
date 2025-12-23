@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import shutil
 
-from audio_converter import AudioConverter
+from .audio_converter import AudioConverter
 
 DEMUCS_MODELS = [
     "htdemucs",
