@@ -1,6 +1,6 @@
 import openai
 import json
-from .LLMPrompt import edit_prompt, correct_prompt
+from .LLMPrompt import edit_prompt, correct_prompt, image_prompt
 from dotenv import load_dotenv
 import os
 import logging
@@ -66,5 +66,26 @@ class LLMTextEditor:
             parsed_data = json.loads(response_text)
             return parsed_data
         except json.JSONDecodeError:
+            print(response_text)
             logger.warning(f"Модель вернула невалидный JSON, возвращаем сырой текст.")
             return response_text
+    def create_image_prompts(self, num: int, data: str):
+        messages = [
+                {"role": "user", "content": image_prompt.format(data, num)}
+            ]
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=YANDEX_CLOUD_MODEL,
+                messages=messages,
+                stream=False,
+                temperature=0.1,
+                max_tokens=2000
+            )
+        except Exception as e:
+            logger.error(f"Ошибка запроса к модели: {e}")
+            return None
+        plist = response.choices[0].message.content.split('[IMAGE]')
+        if len(plist) != num:
+            raise Exception("LLM вернула некорректные промпты!")
+        return plist
