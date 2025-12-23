@@ -108,8 +108,8 @@ const WordElement = ({
     if (wordRef.current) {
       const rect = wordRef.current.getBoundingClientRect();
       onPositionUpdate({
-        x: rect.left + rect.width / 2 + window.scrollX,
-        y: rect.top + rect.height / 2 + window.scrollY,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
       });
     }
   }, [onPositionUpdate]);
@@ -171,20 +171,22 @@ const WordElement = ({
 };
 
 const ParticlesContainer = ({ completedWords, params }: { 
-  completedWords: { id: string; x: number; y: number }[];
+  completedWords: Array<{ id: string; x: number; y: number }>;
   params: AnimationParams;
 }) => (
   <div className="fixed inset-0 pointer-events-none z-0">
-    {completedWords.map((word) => (
-      <ParticleEffect
-        key={word.id}
-        x={word.x}
-        y={word.y}
-        intensity={params.particleIntensity}
-        count={params.particleCount}
-        duration={params.fadeOutDuration}
-      />
-    ))}
+    <AnimatePresence>
+      {completedWords.map((word) => (
+        <ParticleEffect
+          key={word.id}
+          x={word.x}
+          y={word.y}
+          intensity={params.particleIntensity}
+          count={params.particleCount}
+          duration={params.fadeOutDuration}
+        />
+      ))}
+    </AnimatePresence>
   </div>
 );
 
@@ -201,6 +203,9 @@ export function KaraokeDisplay({
   const containerRef = useRef<HTMLDivElement>(null);
   const lastScrolledWordIndexRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
+
+  // Время предварительного появления строки и прокрутки (в секундах)
+  const PREVIEW_TIME = 2.0; // Увеличено для более раннего появления
 
   // Безопасное управление жизненным циклом компонента
   useEffect(() => {
@@ -226,8 +231,10 @@ export function KaraokeDisplay({
 
   // Поиск текущей строки и слова с мемоизацией
   const { currentLine, currentWordIndex } = useMemo(() => {
+    // Находим строку, которая будет активной или уже активна
+    // Увеличиваем время предварительного появления
     const line = karaokeData.find(
-      (l) => currentTime >= l.start && currentTime <= l.end
+      (l) => currentTime >= (l.start - PREVIEW_TIME) && currentTime <= l.end
     );
     
     const wordIndex = line 
@@ -235,7 +242,7 @@ export function KaraokeDisplay({
       : -1;
       
     return { currentLine: line, currentWordIndex: wordIndex };
-  }, [karaokeData, currentTime]);
+  }, [karaokeData, currentTime, PREVIEW_TIME]);
 
   // Обновление списка завершенных слов
   useEffect(() => {
@@ -243,8 +250,16 @@ export function KaraokeDisplay({
     
     const cleanupTimeouts: NodeJS.Timeout[] = [];
 
-    currentLine.words.forEach((word, index) => {
-      const wordId = `${currentLine.start}-${index}`;
+    // Находим индекс текущей строки в массиве karaokeData
+    const currentLineIndex = karaokeData.findIndex(
+      l => l.start === currentLine.start && l.end === currentLine.end
+    );
+    
+    if (currentLineIndex === -1) return;
+
+    currentLine.words.forEach((word, wordIndex) => {
+      // Создаем уникальный ID слова
+      const wordId = `${currentLine.start}-${currentLineIndex}-${wordIndex}`;
       
       if (currentTime > word.end + params.wordLingerDuration) {
         if (!completedWordIdsRef.current.has(wordId)) {
@@ -261,19 +276,22 @@ export function KaraokeDisplay({
           ]);
 
           const timeout = setTimeout(() => {
-            setCompletedWords(prev => prev.filter(w => w.id !== wordId));
-            completedWordIdsRef.current.delete(wordId);
+            if (isMountedRef.current) {
+              setCompletedWords(prev => prev.filter(w => w.id !== wordId));
+              completedWordIdsRef.current.delete(wordId);
+            }
           }, params.fadeOutDuration * 1000 + 100);
           
           cleanupTimeouts.push(timeout);
         }
       } else if (completedWordIdsRef.current.has(wordId)) {
+        // Если слово снова стало активным, убираем его из завершенных
         completedWordIdsRef.current.delete(wordId);
       }
     });
 
     return () => cleanupTimeouts.forEach(clearTimeout);
-  }, [currentTime, currentLine, params.wordLingerDuration, params.fadeOutDuration]);
+  }, [currentTime, currentLine, karaokeData, params.wordLingerDuration, params.fadeOutDuration, isMountedRef]);
 
   // Обработка позиции слова для эффектов частиц
   const handleWordPositionUpdate = useCallback((wordId: string, position: WordPosition) => {
@@ -358,7 +376,8 @@ export function KaraokeDisplay({
                   className="flex flex-nowrap justify-center items-end gap-2 md:gap-3 min-w-max py-2"
                 >
                   {currentLine.words.map((word, index) => {
-                    const wordId = `${currentLine.start}-${index}`;
+                    // Формируем уникальный ID слова
+                    const wordId = `${currentLine.start}-${karaokeData.findIndex(l => l.start === currentLine.start && l.end === currentLine.end)}-${index}`;
                     return (
                       <WordElement
                         key={wordId}

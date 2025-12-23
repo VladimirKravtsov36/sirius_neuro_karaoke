@@ -90,8 +90,8 @@ export function ParametersMenu({
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>Vocals</span>
                   <span>Instrumental</span>
+                  <span>Vocals</span>
                 </div>
               </div>
 
@@ -108,15 +108,15 @@ export function ParametersMenu({
                 <Slider
                   value={[keyValue]}
                   onValueChange={(values) => onKeyChange(values[0])}
-                  min={-12}
-                  max={12}
+                  min={-6}
+                  max={6}
                   step={1}
-                  className="w-full"
+                  className="w-full [direction:rtl]]"
                 />
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>-12</span>
+                  <span>-6</span>
                   <span>0</span>
-                  <span>+12</span>
+                  <span>+6</span>
                 </div>
               </div>
             </div>

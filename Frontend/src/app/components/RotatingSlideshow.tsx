@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface RotatingSlideshowProps {
@@ -6,18 +6,40 @@ interface RotatingSlideshowProps {
   duration?: number; // Duration in seconds per slide
 }
 
+const SlideIndicator = memo(({ index, currentIndex }: { index: number; currentIndex: number }) => (
+  <motion.div
+    className={`rounded-full transition-all duration-300 ${
+      index === currentIndex
+        ? 'bg-white w-8 h-2'
+        : 'bg-white/40 w-2 h-2'
+    }`}
+    initial={false}
+    animate={{
+      scale: index === currentIndex ? 1 : 0.8,
+    }}
+    transition={{
+      duration: 0.3,
+      ease: 'easeInOut',
+    }}
+  />
+));
+
+SlideIndicator.displayName = 'SlideIndicator';
+
 export function RotatingSlideshow({ images, duration = 3 }: RotatingSlideshowProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const goToNextSlide = useCallback(() => {
+    setCurrentIndex(prevIndex => (prevIndex + 1) % images.length);
+  }, [images.length]);
 
   useEffect(() => {
     if (images.length === 0) return;
 
-    const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, duration * 1000);
+    const interval = setInterval(goToNextSlide, duration * 1000);
 
     return () => clearInterval(interval);
-  }, [images.length, duration]);
+  }, [images.length, duration, goToNextSlide]);
 
   if (images.length === 0) {
     return (
@@ -67,21 +89,10 @@ export function RotatingSlideshow({ images, duration = 3 }: RotatingSlideshowPro
       {/* Slide indicator dots */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         {images.map((_, index) => (
-          <motion.div
+          <SlideIndicator
             key={index}
-            className={`rounded-full transition-all duration-300 ${
-              index === currentIndex
-                ? 'bg-white w-8 h-2'
-                : 'bg-white/40 w-2 h-2'
-            }`}
-            initial={false}
-            animate={{
-              scale: index === currentIndex ? 1 : 0.8,
-            }}
-            transition={{
-              duration: 0.3,
-              ease: 'easeInOut',
-            }}
+            index={index}
+            currentIndex={currentIndex}
           />
         ))}
       </div>

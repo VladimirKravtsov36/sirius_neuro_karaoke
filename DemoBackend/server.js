@@ -11,8 +11,8 @@ app.use(express.json());
 
 // Тестовые треки
 const tracks = [
-  { id: '1', title: 'Shape of You', artist: 'Ed Sheeran', coverUrl: 'https://i.ytimg.com/vi/ts05cwj7-98/maxresdefault.jpg' },
-  { id: '2', title: 'Blinding Lights', artist: 'The Weeknd', coverUrl: 'https://i.ytimg.com/vi/ts05cwj7-98/maxresdefault.jpg' },
+  { id: '1', title: 'Shape of You', artist: 'Ed Sheeran', coverUrl: 'https://i.ytimg.com/vi/ts05cwj7-98/maxresdefault.jpg  ' },
+  { id: '2', title: 'Blinding Lights', artist: 'The Weeknd', coverUrl: 'https://i.ytimg.com/vi/ts05cwj7-98/maxresdefault.jpg  ' },
 ];
 
 // Поиск
@@ -53,8 +53,12 @@ app.post('/process/:trackId', (req, res) => {
 
   res.json({
     status: 'success',
-    track_info: { title: track.title, artist: track.artist },
-    analysis: { key: 'C#m' },
+    track_info: {
+        id: track.id, // <-- Добавлено: id в track_info
+        title: track.title,
+        artist: track.artist
+    },
+    analysis: { key: 0 },
     downloads: {
       vocals_url: `${baseUrl}/vocals.mp3`,
       instrumental_url: `${baseUrl}/instrumental.mp3`,
