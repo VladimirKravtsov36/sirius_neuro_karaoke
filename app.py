@@ -135,5 +135,5 @@ def get_images(track_folder: str):
 # Для запуска локально:
 if __name__ == "__main__":
     import uvicorn
-    # Запуск сервера на порту 8000
+    # Запуск сервера локально
     uvicorn.run(app, host="127.0.0.1", port=3001)
