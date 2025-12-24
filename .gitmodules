@@ -1,0 +1,3 @@
+[submodule "separation/demucs"]
+	path = separation/demucs
+	url = https://github.com/facebookresearch/demucs
