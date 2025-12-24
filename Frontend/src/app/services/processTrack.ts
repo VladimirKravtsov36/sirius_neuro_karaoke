@@ -19,7 +19,7 @@ export interface ProcessTrackResponse {
 
 export async function processTrack(trackId: string) {
   try {
-    const response = await fetch(`http://localhost:3001/process/${trackId}`, {
+    const response = await fetch(`/api/process-track/${trackId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });

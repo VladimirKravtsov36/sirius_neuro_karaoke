@@ -8,7 +8,7 @@ export async function searchSongs(
   query: string,
   signal?: AbortSignal
 ): Promise<SearchResult[]> {
-  const res = await fetch(`http://localhost:3001/api/search?query=${encodeURIComponent(query)}`, {
+  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
     signal,
   });
 
