@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import librosa
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ from music_service.music_service import SearchDownloadTrack
 from skey.skey import detect_key
 from separation.source_separator import SourceSeparator
 from KaraokeProcessor.KaraokeProcessor import KaraokeProcessor, AudioLoader, LyricsProvider, LLMTextEditor, ASRService, Aligner
-
+from yandex_generate.image_generator import ImageGenerator
 
 load_dotenv()
 TOKEN = os.getenv("YANDEX_MUSIC_API_TOKEN")
@@ -81,6 +82,9 @@ def process_track(request: TrackRequest):
 
         if not os.path.exists(f"{base_url}/images"):
             os.makedirs(f"{base_url}/images")
+
+        img_generator = ImageGenerator()
+        img_generator.generate_list_of_images(kp.create_image_prompts(10), f"{base_url}/images/")
         
         return {
             "status": "success",

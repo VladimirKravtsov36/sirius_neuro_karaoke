@@ -11,7 +11,6 @@ YANDEX_GPT_AUTH = os.getenv("YANDEX_CLOUD_API_KEY")
 class ImageGenerator:
 
     def __init__ (self, model: str = "yandex-art"):
-        print(YANDEX_FOLDER_ID)
         self.sdk = YCloudML(
             folder_id = YANDEX_FOLDER_ID,
             auth = YANDEX_GPT_AUTH
