@@ -1,6 +1,6 @@
 import openai
 import json
-from .LLMPrompt import edit_prompt, correct_prompt, image_prompt
+from LLMPrompt import edit_prompt, correct_prompt, image_prompt
 from dotenv import load_dotenv
 import os
 import logging
