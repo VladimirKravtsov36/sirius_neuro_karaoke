@@ -1,0 +1,12 @@
+import src.model
+import src.stone
+
+VQT.harmonics = [1]
+VQT.fmin = 27.5
+VQT.n_bins = 99
+VQT.bins_per_octave = 12
+
+Stone.out_channels = [2, 3, 40, 40, 30, 10, 3]
+Stone.kernels = [7, 7, 7, 7, 7, 5, 5]
+Stone.temperature = 1
+Stone.n_bins = 84

@@ -1,0 +1,7 @@
+numpy==2.0.2
+torch==2.5.1
+torchaudio==2.5.1
+tqdm
+einops==0.8.*
+nnAudio==0.3.3
+soundfile==0.13.1
