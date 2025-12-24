@@ -7,6 +7,75 @@ import { RotatingSlideshow } from '../components/RotatingSlideshow';
 import { AnimationParams } from '../types';
 import { X } from 'lucide-react';
 
+// --- Проверка поддержки AudioWorklet (внутри useEffect) ---
+const checkAudioWorkletSupport = (): boolean => {
+  const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContext) {
+    return false;
+  }
+  // Создаём экземпляр, чтобы получить доступ к audioWorklet
+  const ctx = new AudioContext();
+  const isSupported = ctx.audioWorklet !== undefined;
+  // Закрываем контекст, так как он был создан только для проверки
+  ctx.close().catch(() => {}); // Игнорируем ошибку при закрытии проверочного контекста
+  return isSupported;
+};
+
+// --- Функция преобразования полутона в pitch factor ---
+const semitonesToPitchFactor = (semitones: number): number => {
+  return Math.pow(2, semitones / 12);
+};
+
+// --- Список нот ---
+const KEY_NOTES = [
+  "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+  "Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "A#m", "Bm"
+];
+
+// --- Маппинг ноты в полутона ---
+const MAJOR_SEMITONES: { [key: string]: number } = {
+  "C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11
+};
+
+const MINOR_SEMITONES: { [key: string]: number } = {
+  "Cm": 0, "C#m": 1, "Dm": 2, "D#m": 3, "Em": 4, "Fm": 5, "F#m": 6, "Gm": 7, "G#m": 8, "Am": 9, "A#m": 10, "Bm": 11
+};
+
+// Функция для получения количества полутона из строки ноты
+const getKeySemitones = (key: string): number => {
+  if (MAJOR_SEMITONES.hasOwnProperty(key)) {
+    return MAJOR_SEMITONES[key];
+  }
+  if (MINOR_SEMITONES.hasOwnProperty(key)) {
+    const majorKey = key.slice(0, -1); // Убираем 'm'
+    if (MAJOR_SEMITONES.hasOwnProperty(majorKey)) {
+      return MAJOR_SEMITONES[majorKey] - 3; // Относительный минор
+    }
+    return MINOR_SEMITONES[key];
+  }
+  console.warn(`Song.tsx: Неизвестная нота: ${key}, возвращаем 0`);
+  return 0;
+};
+
+// Функция для получения индекса ноты в списке KEY_NOTES
+const getKeyIndex = (key: string): number => {
+  const index = KEY_NOTES.indexOf(key);
+  if (index === -1) {
+    console.warn(`Song.tsx: Нота ${key} не найдена в списке KEY_NOTES, возвращаем 0`);
+    return 0;
+  }
+  return index;
+};
+
+// Функция для получения ноты по индексу
+const getKeyByIndex = (index: number): string => {
+  if (index < 0 || index >= KEY_NOTES.length) {
+    console.warn(`Song.tsx: Индекс ${index} вне диапазона KEY_NOTES, возвращаем 'C'`);
+    return KEY_NOTES[0];
+  }
+  return KEY_NOTES[index];
+};
+
 export default function Song() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -14,8 +83,9 @@ export default function Song() {
 
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
   const [mixValue, setMixValue] = useState(50);
-  const [keyValue, setKeyValue] = useState<number>(
-    typeof trackData?.analysis?.key === 'number' ? trackData.analysis.key : 0
+  // --- Изменено: keyValue теперь строка ---
+  const [keyValue, setKeyValue] = useState<string>(
+    typeof trackData?.analysis?.key === 'string' ? trackData.analysis.key : KEY_NOTES[0]
   );
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -25,6 +95,10 @@ export default function Song() {
   const currentVocalsSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const instrumentalGainRef = useRef<GainNode | null>(null);
   const vocalsGainRef = useRef<GainNode | null>(null);
+  // --- Добавлено: Refs для AudioWorklet и параметра ---
+  const pitchShifterNodeRef = useRef<AudioWorkletNode | null>(null);
+  const pitchParamRef = useRef<AudioParam | null>(null);
+
   const isPlayingRef = useRef(false);
   const startTimeRef = useRef(0);
   const pausedAtRef = useRef(0);
@@ -32,6 +106,8 @@ export default function Song() {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  // --- Добавлено: Состояние для проверки поддержки Worklet ---
+  const [audioWorkletSupported, setAudioWorkletSupported] = useState(false);
 
   // --- useRef для отслеживания предыдущего trackId ---
   const previousTrackIdRef = useRef<string | number | undefined>(undefined);
@@ -62,19 +138,89 @@ export default function Song() {
       ? karaokeData[karaokeData.length - 1].end
       : 12;
 
-  // --- useEffect для инициализации AudioContext и гейнов ---
+  // --- useEffect для инициализации AudioContext, гейнов и AudioWorklet ---
   useEffect(() => {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    const ctx = new AudioContext();
-    audioContextRef.current = ctx;
+    // --- Проверка поддержки AudioWorklet ---
+    const isSupported = checkAudioWorkletSupport();
+    setAudioWorkletSupported(isSupported);
+    if (!isSupported) {
+      console.warn("Song.tsx: AudioWorklet API не поддерживается. Pitch shifting будет отключен.");
+      // Инициализируем обычный контекст и гейны
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
 
-    const instrumentalGain = ctx.createGain();
-    const vocalsGain = ctx.createGain();
-    instrumentalGain.connect(ctx.destination);
-    vocalsGain.connect(ctx.destination);
+      const instrumentalGain = ctx.createGain();
+      const vocalsGain = ctx.createGain();
+      instrumentalGain.connect(ctx.destination);
+      vocalsGain.connect(ctx.destination);
 
-    instrumentalGainRef.current = instrumentalGain;
-    vocalsGainRef.current = vocalsGain;
+      instrumentalGainRef.current = instrumentalGain;
+      vocalsGainRef.current = vocalsGain;
+      return;
+    }
+
+    const initAudio = async () => {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
+
+      try {
+        // --- Загрузка AudioWorklet модуля ---
+        await ctx.audioWorklet.addModule('/phase-vocoder.js');
+        console.log("Song.tsx: AudioWorklet модуль загружен.");
+
+        const pitchShifterNode = new AudioWorkletNode(ctx, 'phase-vocoder-processor');
+        pitchShifterNodeRef.current = pitchShifterNode;
+
+        // Предполагаем, что параметр называется 'pitchFactor', как в примере
+        const pitchParam = pitchShifterNode.parameters.get('pitchFactor');
+        if (pitchParam) {
+          pitchParamRef.current = pitchParam;
+          console.log("Song.tsx: AudioParam 'pitchFactor' получен.");
+          // --- Установка начального значения pitch после инициализации ---
+          const initialSemitones = getKeySemitones(keyValue);
+          const initialPitchFactor = semitonesToPitchFactor(initialSemitones);
+          const clampedFactor = Math.max(0.5, Math.min(1.5, initialPitchFactor));
+          pitchParamRef.current.value = clampedFactor;
+          console.log(`Song.tsx: Установлен начальный pitchFactor: ${clampedFactor} для keyValue (note): ${keyValue}, semitones: ${initialSemitones}`);
+        } else {
+          console.error("Song.tsx: Не удалось получить AudioParam 'pitchFactor'. Проверьте имя параметра в библиотеке phaze.");
+          // Резервный режим: подключаем напрямую к destination
+          pitchShifterNode.connect(ctx.destination);
+        }
+
+        const instrumentalGain = ctx.createGain();
+        const vocalsGain = ctx.createGain();
+        instrumentalGain.connect(pitchShifterNode);
+        vocalsGain.connect(pitchShifterNode);
+        if (pitchParam) {
+          pitchShifterNode.connect(ctx.destination);
+        } else {
+          // Резервный режим: подключаем напрямую к destination
+          instrumentalGain.connect(ctx.destination);
+          vocalsGain.connect(ctx.destination);
+        }
+
+        instrumentalGainRef.current = instrumentalGain;
+        vocalsGainRef.current = vocalsGain;
+
+      } catch (err) {
+        console.error("Song.tsx: Ошибка инициализации AudioWorklet:", err);
+        // Резервный режим: инициализация без Worklet при ошибке
+        setAudioWorkletSupported(false); // Отключаем поддержку при ошибке
+
+        const instrumentalGain = ctx.createGain();
+        const vocalsGain = ctx.createGain();
+        instrumentalGain.connect(ctx.destination);
+        vocalsGain.connect(ctx.destination);
+
+        instrumentalGainRef.current = instrumentalGain;
+        vocalsGainRef.current = vocalsGain;
+      }
+    };
+
+    initAudio();
 
     return () => {
       if (currentInstrumentalSourceRef.current) {
@@ -86,6 +232,11 @@ export default function Song() {
         try { currentVocalsSourceRef.current.stop(); } catch {}
         currentVocalsSourceRef.current.disconnect();
         currentVocalsSourceRef.current = null;
+      }
+      if (pitchShifterNodeRef.current) {
+        pitchShifterNodeRef.current.disconnect();
+        pitchShifterNodeRef.current = null;
+        pitchParamRef.current = null;
       }
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -100,7 +251,7 @@ export default function Song() {
   useEffect(() => {
     // Проверяем, изменился ли trackId
     if (trackId !== previousTrackIdRef.current) {
-      // console.log("Song.tsx: trackId изменился, запускаем загрузку буферов для:", trackId);
+      console.log("Song.tsx: trackId изменился, запускаем загрузку буферов для:", trackId);
 
       // Запоминаем новый trackId
       previousTrackIdRef.current = trackId;
@@ -124,7 +275,7 @@ export default function Song() {
 
         try {
           if (downloads?.instrumental_url) {
-            // console.log("Song.tsx: Загрузка instrumental с URL:", downloads.instrumental_url);
+            console.log("Song.tsx: Загрузка instrumental с URL:", downloads.instrumental_url);
             const instrumentalResponse = await fetch(downloads.instrumental_url, { signal: abortController.signal });
             if (!instrumentalResponse.ok) {
               throw new Error(`HTTP error! status: ${instrumentalResponse.status}`);
@@ -135,14 +286,14 @@ export default function Song() {
             // Проверка снова перед сохранением (вдруг trackId снова изменился к моменту декодирования)
             if (currentId === previousTrackIdRef.current) {
               instrumentalBufferRef.current = instrumentalBuffer;
-              // console.log("Song.tsx: instrumentalBuffer сохранен в ref");
+              console.log("Song.tsx: instrumentalBuffer сохранен в ref");
             } else {
-              // console.log("Song.tsx: trackId изменился во время загрузки instrumental, пропускаем сохранение.");
+              console.log("Song.tsx: trackId изменился во время загрузки instrumental, пропускаем сохранение.");
             }
           }
 
           if (downloads?.vocals_url) {
-            // console.log("Song.tsx: Загрузка vocals с URL:", downloads.vocals_url);
+            console.log("Song.tsx: Загрузка vocals с URL:", downloads.vocals_url);
             const vocalsResponse = await fetch(downloads.vocals_url, { signal: abortController.signal });
             if (!vocalsResponse.ok) {
               throw new Error(`HTTP error! status: ${vocalsResponse.status}`);
@@ -152,14 +303,14 @@ export default function Song() {
 
             if (currentId === previousTrackIdRef.current) {
               vocalsBufferRef.current = vocalsBuffer;
-              // console.log("Song.tsx: vocalsBuffer сохранен в ref");
+              console.log("Song.tsx: vocalsBuffer сохранен в ref");
             } else {
-              // console.log("Song.tsx: trackId изменился во время загрузки vocals, пропускаем сохранение.");
+              console.log("Song.tsx: trackId изменился во время загрузки vocals, пропускаем сохранение.");
             }
           }
         } catch (e) {
           if (e instanceof DOMException && e.name === 'AbortError') {
-            // console.log("Song.tsx: Загрузка отменена из-за смены трека.");
+            console.log("Song.tsx: Загрузка отменена из-за смены трека.");
           } else {
             console.error("Song.tsx: Ошибка загрузки/декодирования аудио:", e);
           }
@@ -169,14 +320,40 @@ export default function Song() {
       if (trackId && (downloads?.instrumental_url || downloads?.vocals_url)) {
         loadAndSetupBuffers(trackId);
       } else {
-        // console.log("Song.tsx: URL для аудио недоступны или currentTrackId отсутствует, пропускаем загрузку.");
+        console.log("Song.tsx: URL для аудио недоступны или currentTrackId отсутствует, пропускаем загрузку.");
       }
     }
     // Зависимости: только trackId и downloads, чтобы не срабатывать при изменении других свойств trackData
   }, [trackId, downloads?.instrumental_url, downloads?.vocals_url]);
 
+  // --- useEffect для обновления гейнов и pitch ---
+  useEffect(() => {
+    if (instrumentalGainRef.current && vocalsGainRef.current) {
+      const instrumentalLevel = 1.0;
+      const vocalsLevel = mixValue / 100;
+
+      const ctx = audioContextRef.current;
+      if (ctx) {
+        instrumentalGainRef.current.gain.setValueAtTime(instrumentalLevel, ctx.currentTime);
+        vocalsGainRef.current.gain.setValueAtTime(vocalsLevel, ctx.currentTime);
+      }
+    }
+
+    // --- Обновление pitch ---
+    if (pitchParamRef.current) {
+      // keyValue - это строка ноты
+      const semitones = getKeySemitones(keyValue); // Преобразуем ноту в полутона
+      const pitchFactor = semitonesToPitchFactor(semitones);
+      // Ограничиваем диапазон pitch factor, например, от 0.5 до 1.5 (может потребоваться корректировка)
+      const clampedFactor = Math.max(0.5, Math.min(1.5, pitchFactor));
+      pitchParamRef.current.value = clampedFactor;
+      console.log(`Song.tsx: Установлен pitchFactor: ${clampedFactor} для keyValue (note): ${keyValue}, semitones: ${semitones}`);
+    }
+  }, [mixValue, keyValue]); // Зависит от mixValue и keyValue (строки)
+
+
   const startPlayback = useCallback(async () => {
-    // console.log("Song.tsx: Вызов startPlayback. isPlayingRef.current:", isPlayingRef.current);
+    console.log("Song.tsx: Вызов startPlayback. isPlayingRef.current:", isPlayingRef.current);
     if (!audioContextRef.current) {
         console.error("Song.tsx: AudioContext не инициализирован");
         return;
@@ -232,7 +409,7 @@ export default function Song() {
   }, []);
 
   const pausePlayback = useCallback(() => {
-    // console.log("Song.tsx: Вызов pausePlayback. isPlayingRef.current:", isPlayingRef.current);
+    console.log("Song.tsx: Вызов pausePlayback. isPlayingRef.current:", isPlayingRef.current);
     if (!audioContextRef.current || !isPlayingRef.current) return;
 
     const ctx = audioContextRef.current;
@@ -255,7 +432,7 @@ export default function Song() {
   }, []);
 
   const seekAudio = useCallback((newTime: number) => {
-    // console.log("Song.tsx: Вызов seekAudio к времени:", newTime);
+    console.log("Song.tsx: Вызов seekAudio к времени:", newTime);
     if (!audioContextRef.current) {
         console.error("Song.tsx: AudioContext не инициализирован при перемотке");
         return;
@@ -274,19 +451,6 @@ export default function Song() {
     setCurrentTime(newTime);
   }, [pausePlayback, startPlayback]);
 
-  useEffect(() => {
-    if (instrumentalGainRef.current && vocalsGainRef.current) {
-      const instrumentalLevel = 1.0;
-      const vocalsLevel = mixValue / 100;
-
-      const ctx = audioContextRef.current;
-      if (ctx) {
-        instrumentalGainRef.current.gain.setValueAtTime(instrumentalLevel, ctx.currentTime);
-        vocalsGainRef.current.gain.setValueAtTime(vocalsLevel, ctx.currentTime);
-      }
-    }
-  }, [mixValue]);
-
   // --- useEffect для обновления времени (оптимизирован) ---
   useEffect(() => {
     if (!isPlayingRef.current || !audioContextRef.current) {
@@ -302,7 +466,7 @@ export default function Song() {
         setCurrentTime(cappedTime);
 
         if (elapsed >= totalDuration && totalDuration > 0) {
-            // console.log("Song.tsx: Достигнут конец трека, останавливаем воспроизведение");
+            console.log("Song.tsx: Достигнут конец трека, останавливаем воспроизведение");
             pausePlayback();
             setCurrentTime(totalDuration);
         } else {
@@ -344,7 +508,7 @@ export default function Song() {
 
   // Обернутые в useCallback обработчики
   const handlePlayPauseToggle = useCallback(() => {
-    // console.log("Song.tsx: Кнопка Play/Pause нажата. Текущее состояние isPlaying:", isAudioPlaying);
+    console.log("Song.tsx: Кнопка Play/Pause нажата. Текущее состояние isPlaying:", isAudioPlaying);
     if (isPlayingRef.current) {
       pausePlayback();
     } else {
@@ -353,7 +517,7 @@ export default function Song() {
   }, [isPlayingRef.current, pausePlayback, startPlayback]);
 
   const handleSeek = useCallback((time: number) => {
-    // console.log("Song.tsx: Перемотка к времени:", time);
+    console.log("Song.tsx: Перемотка к времени:", time);
     seekAudio(time);
   }, [seekAudio]);
 
@@ -371,9 +535,16 @@ export default function Song() {
         isOpen={isMenuOpen}
         onToggle={() => setIsMenuOpen(!isMenuOpen)}
         mixValue={mixValue}
-        keyValue={keyValue}
+        keyValue={keyValue} // Передаём строку ноты
         onMixChange={setMixValue}
-        onKeyChange={setKeyValue}
+        // --- Передаём setKeyValue (но слайдер будет обновляться по индексу, а не по строке напрямую) ---
+        keyIndex={getKeyIndex(keyValue)} // Передаём индекс
+        onKeyIndexChange={(index) => {
+            if (audioWorkletSupported && index >= 0 && index < KEY_NOTES.length) {
+                setKeyValue(getKeyByIndex(index));
+            }
+        }}
+        keyDisabled={!audioWorkletSupported}
       />
 
       <div

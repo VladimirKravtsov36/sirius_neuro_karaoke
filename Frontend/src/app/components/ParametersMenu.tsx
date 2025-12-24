@@ -9,6 +9,7 @@ interface ParametersMenuProps {
   keyValue: number;
   onMixChange: (value: number) => void;
   onKeyChange: (value: number) => void;
+  keyDisabled?: boolean; // --- Добавлен проп ---
 }
 
 export function ParametersMenu({
@@ -18,6 +19,7 @@ export function ParametersMenu({
   keyValue,
   onMixChange,
   onKeyChange,
+  keyDisabled = false, // --- Добавлено значение по умолчанию ---
 }: ParametersMenuProps) {
   return (
     <>
@@ -107,11 +109,12 @@ export function ParametersMenu({
                 </div>
                 <Slider
                   value={[keyValue]}
-                  onValueChange={(values) => onKeyChange(values[0])}
+                  onValueChange={(values) => onKeyChange(values[0])} // onKeyChange теперь всегда функция
                   min={-6}
                   max={6}
                   step={1}
                   className="w-full [direction:rtl]]"
+                  disabled={keyDisabled} // --- Добавлено: отключение слайдера ---
                 />
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>-6</span>
