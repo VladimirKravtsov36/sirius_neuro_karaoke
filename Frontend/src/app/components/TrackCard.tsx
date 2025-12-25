@@ -11,8 +11,8 @@ interface TrackCardProps {
 
 export function TrackCard({ id, title, artist, coverUrl }: TrackCardProps) {
   const navigate = useNavigate();
-
   const handleClick = async () => {
+    navigate('/loading', { state: { trackId: id } });
     const result = await processTrack(id);
 
     if (result.status === 'success') {

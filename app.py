@@ -1,6 +1,8 @@
 from __future__ import annotations
 import os
 import librosa
+import subprocess
+import torch
 from dotenv import load_dotenv
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Body
@@ -15,11 +17,9 @@ from yandex_generate.image_generator import ImageGenerator
 
 load_dotenv()
 TOKEN = os.getenv("YANDEX_MUSIC_API_TOKEN")
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
 app = FastAPI(title="Music Backend API")
 app.mount("/data", StaticFiles(directory="data/"), name="separated_songs")
-
 app.mount("/assets", StaticFiles(directory="Frontend/dist/assets"), name="assets")
 
 yandex_service = SearchDownloadTrack(token=TOKEN)
@@ -27,6 +27,36 @@ yandex_service = SearchDownloadTrack(token=TOKEN)
 # --- Pydantic модели (для валидации входящих JSON) ---
 class TrackRequest(BaseModel):
     track_id: int  # Фронтенд должен прислать {"track_id": "12345"}
+
+def get_free_gpu():
+    """Get the ID of the GPU with the least memory usage."""
+    try:
+        # Query GPU memory usage
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        if result.returncode != 0:
+            # Default to GPU 0 if nvidia-smi fails
+            return "0"
+        
+        lines = result.stdout.strip().split('\n')
+        min_usage = float('inf')
+        selected_gpu = 0
+        
+        for i, line in enumerate(lines):
+            used, total = map(int, line.split(', '))
+            usage = used / total
+            if usage < min_usage:
+                min_usage = usage
+                selected_gpu = i
+                
+        return str(selected_gpu)
+    except Exception:
+        # Default to GPU 0 if anything goes wrong
+        return "0"
 
 # --- Эндпоинты (Ручки API) ---
 
@@ -60,6 +90,11 @@ def process_track(request: TrackRequest):
     2. Передает результат в AudioProcessorService
     3. Отдает отчет JSON
     """
+    # Select and set GPU before processing
+    gpu_id = get_free_gpu()
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+    print(f"Using GPU: {gpu_id}")
+
     try:
         # Шаг 1: Скачиваем (используем первый класс)
         print(f"Запрос на обработку трека ID: {request.track_id}")
@@ -149,7 +184,7 @@ def get_images(track_folder: str):
 
 app.mount("/", StaticFiles(directory="Frontend/dist", html=True), name="frontend_root")
 
-# Для запуска локально:
+# For local startup:
 if __name__ == "__main__":
    # results = yandex_service.search("Her")
    # print(results)
@@ -157,5 +192,5 @@ if __name__ == "__main__":
         
    # print([{"id": str(track['id']),"title": track['title'],"artist": track['artists'],"coverUrl": "https://" + track['cover'] }for track in results["tracks"]])
     import uvicorn
-    # Запуск сервера локально
+    # Launch the server locally
     uvicorn.run(app, host="127.0.0.1", port=3001)

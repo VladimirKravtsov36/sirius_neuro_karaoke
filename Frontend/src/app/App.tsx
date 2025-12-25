@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import SearchPage from './pages/SearchPage';
 import Song from './pages/Song';
 import ErrorPage from './pages/Error';
+import {LoadingPage} from './pages/LoadingPage';
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
 
       {/* Страницы без Layout */}
       <Route path="/song" element={<Song />} />
-
+      <Route path="/loading" element={<LoadingPage />} />
     </Routes>
   );
 }
