@@ -1,5 +1,7 @@
+
 from __future__ import annotations
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 import librosa
 import subprocess
 import torch
@@ -28,36 +30,6 @@ yandex_service = SearchDownloadTrack(token=TOKEN)
 class TrackRequest(BaseModel):
     track_id: int  # Фронтенд должен прислать {"track_id": "12345"}
 
-def get_free_gpu():
-    """Get the ID of the GPU with the least memory usage."""
-    try:
-        # Query GPU memory usage
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        if result.returncode != 0:
-            # Default to GPU 0 if nvidia-smi fails
-            return "0"
-        
-        lines = result.stdout.strip().split('\n')
-        min_usage = float('inf')
-        selected_gpu = 0
-        
-        for i, line in enumerate(lines):
-            used, total = map(int, line.split(', '))
-            usage = used / total
-            if usage < min_usage:
-                min_usage = usage
-                selected_gpu = i
-                
-        return str(selected_gpu)
-    except Exception:
-        # Default to GPU 0 if anything goes wrong
-        return "0"
-
 # --- Эндпоинты (Ручки API) ---
 
 @app.get("/search")
@@ -83,18 +55,14 @@ def search_tracks(q: str):
 
 
 @app.post("/process-track")
-def process_track(request: TrackRequest):
+async def process_track(request: TrackRequest):
     """
     Пример: POST /process-track с JSON {"track_id": "123456"}
     1. Качает трек через YandexService
     2. Передает результат в AudioProcessorService
     3. Отдает отчет JSON
     """
-    # Select and set GPU before processing
-    gpu_id = get_free_gpu()
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
-    print(f"Using GPU: {gpu_id}")
-
+    # Select and set GPU before processin
     try:
         # Шаг 1: Скачиваем (используем первый класс)
         print(f"Запрос на обработку трека ID: {request.track_id}")
@@ -110,7 +78,7 @@ def process_track(request: TrackRequest):
 
         # Генерируем ссылки для скачивания (для фронтенда)
         # Предполагаем, что сервер запущен локально
-        base_url = f"data/separated_songs/htdemucs_ft/{Path(track_file_dto.file_name).stem}"
+        base_url = f"data/separated_songs/mdx_q/{Path(track_file_dto.file_name).stem}"
         vocal_filename = os.path.basename("vocals.mp3")
         instr_filename = os.path.basename("no_vocals.mp3")
         
@@ -131,7 +99,7 @@ def process_track(request: TrackRequest):
             os.makedirs(f"{base_url}/images")
 
         img_generator = ImageGenerator()
-        img_generator.generate_list_of_images(kp.create_image_prompts(2), f"{base_url}/images/")
+        await img_generator.generate_list_of_images(kp.create_image_prompts(10), f"{base_url}/images/")
         
         return {
             "status": "success",
@@ -167,11 +135,11 @@ def get_images(track_folder: str):
     Возвращает ссылки на картинки списком
     """
     try:
-        files = os.listdir(f"data/separated_songs/htdemucs_ft/{track_folder}/images")
+        files = os.listdir(f"data/separated_songs/mdx_q/{track_folder}/images")
 
         urls = []
         for filename in files:
-            full_url = f"/data/separated_songs/htdemucs_ft/{track_folder}/images/" + filename
+            full_url = f"/data/separated_songs/mdx_q/{track_folder}/images/" + filename
             urls.append(full_url)
         
         return {

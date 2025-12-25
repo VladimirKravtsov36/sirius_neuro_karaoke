@@ -6,20 +6,22 @@ interface ParametersMenuProps {
   isOpen: boolean;
   onToggle: () => void;
   mixValue: number;
-  keyValue: number;
+  pitchValue: number; // 🔁 Переименовано с keyValue → pitchValue
   onMixChange: (value: number) => void;
-  onKeyChange: (value: number) => void;
-  keyDisabled?: boolean; // --- Добавлен проп ---
+  onPitchChange: (value: number) => void; // 🔁 Переименовано
+  keyDisabled?: boolean;
+  trackKey?: string; // 👈 Новое: оригинальное значение Key из API
 }
 
 export function ParametersMenu({
   isOpen,
   onToggle,
   mixValue,
-  keyValue,
+  pitchValue,
   onMixChange,
-  onKeyChange,
-  keyDisabled = false, // --- Добавлено значение по умолчанию ---
+  onPitchChange,
+  keyDisabled = false,
+  trackKey, // деструктуризация
 }: ParametersMenuProps) {
   return (
     <>
@@ -97,30 +99,38 @@ export function ParametersMenu({
                 </div>
               </div>
 
-              {/* Key Slider */}
+              {/* Pitch Slider (was Key) */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className="text-sm text-gray-400">Key</label>
+                  <label className="text-sm text-gray-400">Pitch</label>
                   <div className="px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-500/30">
                     <span className="font-semibold text-blue-300">
-                      {keyValue > 0 ? '+' : ''}{keyValue}
+                      {pitchValue > 0 ? '+' : ''}{pitchValue}
                     </span>
                   </div>
                 </div>
                 <Slider
-                  value={[keyValue]}
-                  onValueChange={(values) => onKeyChange(values[0])} // onKeyChange теперь всегда функция
+                  value={[pitchValue]}
+                  onValueChange={(values) => onPitchChange(values[0])}
                   min={-6}
                   max={6}
                   step={1}
-                  className="w-full [direction:rtl]]"
-                  disabled={keyDisabled} // --- Добавлено: отключение слайдера ---
+                  className="w-full [direction:rtl]"
+                  disabled={keyDisabled}
                 />
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>-6</span>
                   <span>0</span>
                   <span>+6</span>
                 </div>
+
+                {/* 👇 Статичный индикатор оригинального Key из API */}
+                {trackKey !== undefined && (
+                  <div className="mt-2 text-center">
+                    <span className="text-xs text-gray-500">Key: </span>
+                    <span className="text-sm font-mono text-white">{trackKey}</span>
+                  </div>
+                )}
               </div>
             </div>
 

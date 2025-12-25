@@ -543,10 +543,11 @@ export default function Song() {
         isOpen={isMenuOpen}
         onToggle={() => setIsMenuOpen(!isMenuOpen)}
         mixValue={mixValue}
-        keyValue={keyValue} // Передаём число полутона
+        pitchValue={keyValue} // Передаём число полутона
         onMixChange={setMixValue}
-        onKeyChange={audioWorkletSupported ? setKeyValue : () => {}} // Передаём setKeyValue или пустую функцию
+        onPitchChange={audioWorkletSupported ? setKeyValue : () => {}} // Передаём setKeyValue или пустую функцию
         keyDisabled={!audioWorkletSupported}
+        trackKey={track_info?.analysis.key ?? ''}
       />
 
       <div

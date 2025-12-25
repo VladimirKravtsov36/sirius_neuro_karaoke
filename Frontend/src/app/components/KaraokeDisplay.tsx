@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { ParticleEffect } from './ParticleEffect';
 import { AnimationParams, Word, KaraokeLine } from '../types';
 
@@ -16,15 +16,7 @@ interface KaraokeDisplayProps {
   trackInfo: TrackInfo;
 }
 
-interface WordPosition {
-  x: number;
-  y: number;
-}
-
 const DEFAULT_ANIMATION_PARAMS: AnimationParams = {
-  ballBounceHeight: 20,
-  ballBounceDuration: 0.6,
-  fillAnimationSpeed: 1.0,
   wordLingerDuration: 0.8,
   fadeOutDuration: 1.0,
   particleIntensity: 1.0,
@@ -47,7 +39,6 @@ const TrackHeader = ({ trackInfo }: { trackInfo: TrackInfo }) => (
         loading="lazy"
       />
     </div>
-
     <div className="flex flex-col items-center md:items-start text-center md:text-left mt-4 md:mt-0 min-w-0">
       <h1 className="font-bold text-2xl md:text-3xl text-white leading-tight truncate">
         {trackInfo.title}
@@ -91,7 +82,7 @@ const WordElement = ({
   currentTime: number;
   wordLingerDuration: number;
   fadeOutDuration: number;
-  onPositionUpdate: (position: WordPosition) => void;
+  onPositionUpdate: (x: number, y: number) => void;
   wordId: string;
 }) => {
   const wordRef = useRef<HTMLDivElement>(null);
@@ -103,14 +94,10 @@ const WordElement = ({
     return Math.min(100, ((currentTime - word.start) / (word.end - word.start)) * 100);
   }, [currentTime, word]);
 
-  // Отслеживание позиции слова для эффектов частиц
   useEffect(() => {
     if (wordRef.current) {
       const rect = wordRef.current.getBoundingClientRect();
-      onPositionUpdate({
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      });
+      onPositionUpdate(rect.left + rect.width / 2, rect.top + rect.height / 2);
     }
   }, [onPositionUpdate]);
 
@@ -126,38 +113,26 @@ const WordElement = ({
           opacity: shouldFadeOut ? 0 : 1,
           y: shouldFadeOut ? -20 : 0,
         }}
-        transition={{ 
-          duration: shouldFadeOut ? fadeOutDuration : 0.2,
-          ease: "easeOut"
-        }}
+        transition={{ duration: shouldFadeOut ? fadeOutDuration : 0.2, ease: "easeOut" }}
       >
         <div className="relative text-3xl md:text-4xl lg:text-5xl font-bold py-2">
-          {/* Незаполненный текст */}
           <span
             className="relative z-0 text-transparent bg-clip-text bg-gradient-to-r from-gray-500/70 to-gray-600/70"
             style={{ opacity: Math.max(0.3, word.score || 0.5) }}
           >
             {word.word}
           </span>
-
-          {/* Заполненный текст */}
           <span
             className="absolute top-0 left-0 z-10 text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 overflow-hidden"
             style={{ width: `${fillPercentage}%` }}
           >
             {word.word}
           </span>
-
-          {/* Эффект свечения для текущего слова */}
           {isCurrent && (
             <motion.div
               className="absolute inset-0 -z-10 blur-xl opacity-70"
               animate={{ opacity: [0.5, 0.8, 0.5] }}
-              transition={{ 
-                duration: 1.5, 
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
             >
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">
                 {word.word}
@@ -197,17 +172,14 @@ export function KaraokeDisplay({
   trackInfo 
 }: KaraokeDisplayProps) {
   const [completedWords, setCompletedWords] = useState<Array<{ id: string; x: number; y: number }>>([]);
-  const wordPositionsRef = useRef<Map<string, WordPosition>>(new Map());
+  const wordPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const completedWordIdsRef = useRef<Set<string>>(new Set());
   const wordsContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const lastScrolledWordIndexRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
 
-  // Время предварительного появления строки и прокрутки (в секундах)
-  const PREVIEW_TIME = 2.0; // Увеличено для более раннего появления
+  const PREVIEW_TIME = 2.0;
 
-  // Безопасное управление жизненным циклом компонента
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -215,24 +187,18 @@ export function KaraokeDisplay({
     };
   }, []);
 
-  // Сброс состояний при смене трека
   useEffect(() => {
     wordPositionsRef.current.clear();
     completedWordIdsRef.current.clear();
     setCompletedWords([]);
-    lastScrolledWordIndexRef.current = null;
   }, [trackInfo.coverUrl]);
 
-  // Объединение параметров анимации с значениями по умолчанию
   const params = useMemo(() => ({
     ...DEFAULT_ANIMATION_PARAMS,
     ...animationParams
   }), [animationParams]);
 
-  // Поиск текущей строки и слова с мемоизацией
   const { currentLine, currentWordIndex } = useMemo(() => {
-    // Находим строку, которая будет активной или уже активна
-    // Увеличиваем время предварительного появления
     const line = karaokeData.find(
       (l) => currentTime >= (l.start - PREVIEW_TIME) && currentTime <= l.end
     );
@@ -244,21 +210,18 @@ export function KaraokeDisplay({
     return { currentLine: line, currentWordIndex: wordIndex };
   }, [karaokeData, currentTime, PREVIEW_TIME]);
 
-  // Обновление списка завершенных слов
   useEffect(() => {
     if (!currentLine) return;
     
-    const cleanupTimeouts: NodeJS.Timeout[] = [];
-
-    // Находим индекс текущей строки в массиве karaokeData
     const currentLineIndex = karaokeData.findIndex(
       l => l.start === currentLine.start && l.end === currentLine.end
     );
     
     if (currentLineIndex === -1) return;
 
+    const cleanupTimeouts: NodeJS.Timeout[] = [];
+
     currentLine.words.forEach((word, wordIndex) => {
-      // Создаем уникальный ID слова
       const wordId = `${currentLine.start}-${currentLineIndex}-${wordIndex}`;
       
       if (currentTime > word.end + params.wordLingerDuration) {
@@ -285,7 +248,6 @@ export function KaraokeDisplay({
           cleanupTimeouts.push(timeout);
         }
       } else if (completedWordIdsRef.current.has(wordId)) {
-        // Если слово снова стало активным, убираем его из завершенных
         completedWordIdsRef.current.delete(wordId);
       }
     });
@@ -293,19 +255,13 @@ export function KaraokeDisplay({
     return () => cleanupTimeouts.forEach(clearTimeout);
   }, [currentTime, currentLine, karaokeData, params.wordLingerDuration, params.fadeOutDuration, isMountedRef]);
 
-  // Обработка позиции слова для эффектов частиц
-  const handleWordPositionUpdate = useCallback((wordId: string, position: WordPosition) => {
-    wordPositionsRef.current.set(wordId, position);
-  }, []);
+  const handleWordPositionUpdate = (wordId: string, x: number, y: number) => {
+    wordPositionsRef.current.set(wordId, { x, y });
+  };
 
-  // Автоматическая прокрутка к текущему слову
   useEffect(() => {
     if (currentWordIndex === -1 || !wordsContainerRef.current || !containerRef.current || !currentLine) return;
     
-    // Прокручиваем только при смене слова для оптимизации
-    if (lastScrolledWordIndexRef.current === currentWordIndex) return;
-    lastScrolledWordIndexRef.current = currentWordIndex;
-
     const container = containerRef.current;
     const wordElements = wordsContainerRef.current.children;
     
@@ -320,7 +276,6 @@ export function KaraokeDisplay({
       const containerRect = container.getBoundingClientRect();
       const wordRect = currentWordElement.getBoundingClientRect();
       
-      // Проверяем видимость с отступами
       const isWordVisible = (
         wordRect.left >= containerRect.left - 100 &&
         wordRect.right <= containerRect.right + 100
@@ -344,16 +299,9 @@ export function KaraokeDisplay({
 
   return (
     <div className="relative w-full h-full flex flex-col overflow-hidden bg-gradient-to-b from-gray-900 to-black">
-      {/* Заголовок с информацией о треке */}
       <TrackHeader trackInfo={trackInfo} />
-      
-      {/* Фоновые эффекты */}
       <BackgroundEffects />
-
-      {/* Пустое пространство для центрирования караоке внизу */}
       <div className="flex-1 min-h-0"></div>
-
-      {/* Основной контент караоке */}
       <div className="relative z-10 w-full px-4 pb-12">
         <AnimatePresence mode="wait">
           {currentLine ? (
@@ -365,7 +313,6 @@ export function KaraokeDisplay({
               transition={{ duration: 0.3 }}
               className="w-full"
             >
-              {/* Контейнер с прокруткой для длинных строк */}
               <div 
                 ref={containerRef}
                 className="relative overflow-x-auto scrollbar-hide px-2 py-2"
@@ -376,7 +323,6 @@ export function KaraokeDisplay({
                   className="flex flex-nowrap justify-center items-end gap-2 md:gap-3 min-w-max py-2"
                 >
                   {currentLine.words.map((word, index) => {
-                    // Формируем уникальный ID слова
                     const wordId = `${currentLine.start}-${karaokeData.findIndex(l => l.start === currentLine.start && l.end === currentLine.end)}-${index}`;
                     return (
                       <WordElement
@@ -388,9 +334,7 @@ export function KaraokeDisplay({
                         wordLingerDuration={params.wordLingerDuration}
                         fadeOutDuration={params.fadeOutDuration}
                         wordId={wordId}
-                        onPositionUpdate={(position) => 
-                          handleWordPositionUpdate(wordId, position)
-                        }
+                        onPositionUpdate={(x, y) => handleWordPositionUpdate(wordId, x, y)}
                       />
                     );
                   })}
@@ -402,8 +346,6 @@ export function KaraokeDisplay({
           )}
         </AnimatePresence>
       </div>
-
-      {/* Эффекты частиц для завершенных слов */}
       <ParticlesContainer 
         completedWords={completedWords} 
         params={params} 

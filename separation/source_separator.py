@@ -75,5 +75,5 @@ class SourceSeparator:
                 self._move_dir(Path(tmpdir) / self.model, Path(output_dir) / self.model)
 
         output_dir = Path(output_dir).resolve() / self.model / input_path.stem
-
+      #  del self.model
         return output_dir
