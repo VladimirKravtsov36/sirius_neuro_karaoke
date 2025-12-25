@@ -16,7 +16,7 @@ class ImageGenerator:
             auth = YANDEX_GPT_AUTH
         )
         self.art_model = self.sdk.models.image_generation(model)
-        self.art_model.configure(width_ratio=4, height_ratio=3, seed=50)
+        self.art_model.configure(width_ratio=16, height_ratio=9, seed=50)
 
     def generate_image_by_text(self, text: str, out_path: pathlib.Path = pathlib.Path("res/gener.jpg")):
         operation = self.art_model.run_deferred(text)

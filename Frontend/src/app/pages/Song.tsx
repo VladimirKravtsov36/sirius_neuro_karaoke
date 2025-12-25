@@ -104,7 +104,7 @@ export default function Song() {
 
       try {
         // --- Загрузка AudioWorklet модуля ---
-        await context.audioWorklet.addModule('/phase-vocoder.js');
+        await context.audioWorklet.addModule('./phase-vocoder.js');
         console.log("Song.tsx: AudioWorklet модуль загружен.");
 
         const pitchShifterNode = new AudioWorkletNode(context, 'phase-vocoder-processor');
@@ -486,7 +486,7 @@ export default function Song() {
 
     const fetchImages = async () => {
       try {
-        const res = await fetch(downloads.images_url);
+        const res = await fetch(`/images?track_folder=${encodeURIComponent(downloads.images_url)}`);
         const data = await res.json();
         if (Array.isArray(data.images)) {
           setSlideshowImages(data.images);

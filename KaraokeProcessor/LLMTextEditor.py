@@ -86,4 +86,8 @@ class LLMTextEditor:
             logger.error(f"Ошибка запроса к модели: {e}")
             return None
         plist = response.choices[0].message.content.split('[IMAGE]')
-        return plist
+        clear_plist = []
+        for prompt in plist:
+            if len(prompt.strip()) != 0:
+                clear_plist.append(prompt)
+        return clear_plist

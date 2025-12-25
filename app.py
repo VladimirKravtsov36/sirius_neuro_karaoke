@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from music_service.music_service import SearchDownloadTrack
 from skey.skey import detect_key
@@ -17,24 +18,26 @@ TOKEN = os.getenv("YANDEX_MUSIC_API_TOKEN")
 os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
 app = FastAPI(title="Music Backend API")
-app.mount("/separated_songs", StaticFiles(directory="data/separated_songs"), name="separated_songs")
+app.mount("/data", StaticFiles(directory="data/"), name="separated_songs")
+
+app.mount("/assets", StaticFiles(directory="Frontend/dist/assets"), name="assets")
 
 yandex_service = SearchDownloadTrack(token=TOKEN)
 
 # --- Pydantic модели (для валидации входящих JSON) ---
 class TrackRequest(BaseModel):
-    track_id: str  # Фронтенд должен прислать {"track_id": "12345"}
+    track_id: int  # Фронтенд должен прислать {"track_id": "12345"}
 
 # --- Эндпоинты (Ручки API) ---
 
 @app.get("/search")
-def search_tracks(query: str):
+def search_tracks(q: str):
     """
     Пример: GET /search?q=Linkin Park
     Возвращает список треков (без скачивания).
     """
     try:
-        results = yandex_service.search(query)
+        results = yandex_service.search(q)
         return {"count": len(results), "items": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -55,8 +58,8 @@ def process_track(request: TrackRequest):
 
         # Шаг 2: Передаем в skey, определяем тональность
         sf, _ = librosa.load(track_file_dto.file_path)
-        key = detect_key(audio=sf, extension=track_file_dto.format, device="cuda")
-
+        key = detect_key(audio=sf, extension=track_file_dto.format, device="cpu")
+        #key = 'C'
         # Шаг 3: Передаем в source_separator, отделяем вокал от инструментала
         source_separator = SourceSeparator()
         source_separator.separate(track_file_dto.file_path, output_dir="data/separated_songs")
@@ -103,7 +106,7 @@ def process_track(request: TrackRequest):
                 "instrumental_url": f"{base_url}/{instr_filename}",
                 "images_url": f"{Path(track_file_dto.file_name).stem}"
             },
-            "lyrics": processed_lyrics # Результат работы KaraokeProcessor
+            "karaokeData": processed_lyrics # Результат работы KaraokeProcessor
         }
 
     except ValueError as e:
@@ -124,7 +127,7 @@ def get_images(track_folder: str):
 
         urls = []
         for filename in files:
-            full_url = f"/separated_songs/htdemucs_ft/{track_folder}/images/" + filename
+            full_url = f"/data/separated_songs/htdemucs_ft/{track_folder}/images/" + filename
             urls.append(full_url)
         
         return {
@@ -135,7 +138,8 @@ def get_images(track_folder: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    
+app.mount("/", StaticFiles(directory="Frontend/dist", html=True), name="frontend_root")
+
 # Для запуска локально:
 if __name__ == "__main__":
     import uvicorn

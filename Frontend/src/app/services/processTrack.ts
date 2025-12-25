@@ -17,14 +17,21 @@ export interface ProcessTrackResponse {
   };
 }
 
-export async function processTrack(trackId: string) {
+export async function processTrack(trackId: string): Promise<ProcessTrackResponse> {
   try {
-    const response = await fetch(`/api/process-track/${trackId}`, {
+    const response = await fetch('/process-track', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({ track_id: trackId }) // Отправляем как объект с полем track_id
     });
 
     console.log('Response status:', response.status);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const data = await response.json();
     console.log('Response data:', data);
@@ -35,4 +42,3 @@ export async function processTrack(trackId: string) {
     return { status: 'error' };
   }
 }
-
