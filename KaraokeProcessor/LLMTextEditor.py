@@ -90,4 +90,5 @@ class LLMTextEditor:
         for prompt in plist:
             if len(prompt.strip()) != 0:
                 clear_plist.append(prompt)
+        print(clear_plist)
         return clear_plist

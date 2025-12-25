@@ -58,7 +58,7 @@ def process_track(request: TrackRequest):
 
         # Шаг 2: Передаем в skey, определяем тональность
         sf, _ = librosa.load(track_file_dto.file_path)
-        key = detect_key(audio=sf, extension=track_file_dto.format, device="cpu")
+        key = detect_key(audio=sf, extension=track_file_dto.format, device="cuda")
         #key = 'C'
         # Шаг 3: Передаем в source_separator, отделяем вокал от инструментала
         source_separator = SourceSeparator()
