@@ -17,5 +17,5 @@ export async function searchSongs(
   }
 
   const data = await res.json(); // Await the JSON response first
-  return data.items.tracks; // Then access the nested property
+  return data; // Then access the nested property
 }

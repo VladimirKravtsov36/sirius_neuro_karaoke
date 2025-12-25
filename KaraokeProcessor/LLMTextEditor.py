@@ -71,7 +71,7 @@ class LLMTextEditor:
             return response_text
     def create_image_prompts(self, num: int, data: str):
         messages = [
-                {"role": "user", "content": image_prompt.format(data, num)}
+                {"role": "user", "content": image_prompt.format(n=num, data=data)}
             ]
         
         try:
@@ -85,10 +85,11 @@ class LLMTextEditor:
         except Exception as e:
             logger.error(f"Ошибка запроса к модели: {e}")
             return None
+       # print(response.choices[0].message.content)
         plist = response.choices[0].message.content.split('[IMAGE]')
         clear_plist = []
         for prompt in plist:
             if len(prompt.strip()) != 0:
                 clear_plist.append(prompt)
-        print(clear_plist)
+       # print(clear_plist)
         return clear_plist

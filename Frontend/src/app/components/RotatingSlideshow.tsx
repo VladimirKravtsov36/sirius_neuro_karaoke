@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface RotatingSlideshowProps {
   images: string[];
-  duration?: number; // Duration in seconds per slide
+  duration?: number;
 }
 
 const SlideIndicator = memo(({ index, currentIndex }: { index: number; currentIndex: number }) => (
@@ -43,14 +43,14 @@ export function RotatingSlideshow({ images, duration = 3 }: RotatingSlideshowPro
 
   if (images.length === 0) {
     return (
-      <div className="flex items-center justify-center w-full h-full">
+      <div className="flex items-center justify-center w-full aspect-video bg-gray-800"> {/* Добавлен класс для соотношения сторон */}
         <p className="text-gray-400">No images available</p>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black/20 backdrop-blur-sm">
+    <div className="relative w-full aspect-video flex items-center justify-center overflow-hidden bg-black/20 backdrop-blur-sm"> {/* Изменен контейнер на 16:9 */}
       {/* Slide container */}
       <div className="relative w-full h-full">
         <AnimatePresence mode="wait" initial={false}>
@@ -69,15 +69,15 @@ export function RotatingSlideshow({ images, duration = 3 }: RotatingSlideshowPro
               x: -300,
             }}
             transition={{
-              duration: 0.8,
-              ease: [0.43, 0.13, 0.23, 0.96], // Custom smooth ease-in-out
+              duration: 0.3,
+              ease: [0.43, 0.13, 0.23, 0.96],
             }}
             className="absolute inset-0"
           >
             <img
               src={images[currentIndex]}
               alt={`Slide ${currentIndex + 1}`}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-center" // Убедитесь, что изображение заполняет контейнер
             />
             
             {/* Subtle overlay gradient for depth */}

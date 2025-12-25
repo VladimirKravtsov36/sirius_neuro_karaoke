@@ -38,7 +38,16 @@ def search_tracks(q: str):
     """
     try:
         results = yandex_service.search(q)
-        return {"count": len(results), "items": results}
+        
+        return [
+            {
+                "id": str(track['id']),
+                "title": track['title'],
+                "artist": track['artists'],
+                "coverUrl": "https://" + track['cover'] 
+            }
+            for track in results["tracks"]
+            ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -87,7 +96,7 @@ def process_track(request: TrackRequest):
             os.makedirs(f"{base_url}/images")
 
         img_generator = ImageGenerator()
-        img_generator.generate_list_of_images(kp.create_image_prompts(10), f"{base_url}/images/")
+        img_generator.generate_list_of_images(kp.create_image_prompts(2), f"{base_url}/images/")
         
         return {
             "status": "success",
@@ -95,7 +104,7 @@ def process_track(request: TrackRequest):
                 "id": track_file_dto.track_id,
                 "title": track_file_dto.title,
                 "artist": track_file_dto.artist,
-                "coverUrl": track_file_dto.cover_url
+                "coverUrl": "http://" + track_file_dto.cover_url
             },
             "analysis": {
                 "key": key,  # Результат работы первого класса
@@ -142,6 +151,11 @@ app.mount("/", StaticFiles(directory="Frontend/dist", html=True), name="frontend
 
 # Для запуска локально:
 if __name__ == "__main__":
+   # results = yandex_service.search("Her")
+   # print(results)
+   # results = yandex_service.search("her")
+        
+   # print([{"id": str(track['id']),"title": track['title'],"artist": track['artists'],"coverUrl": "https://" + track['cover'] }for track in results["tracks"]])
     import uvicorn
     # Запуск сервера локально
     uvicorn.run(app, host="127.0.0.1", port=3001)
