@@ -19,7 +19,7 @@ DEMUCS_MODELS = [
 
 
 class SourceSeparator:
-    def __init__(self, model: str = "htdemucs_ft"):
+    def __init__(self, model: str = "mdx_q"):
         if model not in DEMUCS_MODELS:
             raise ValueError(
                 f"Отсутствует данная модель: {model}\nДоступные модели: {DEMUCS_MODELS}"
